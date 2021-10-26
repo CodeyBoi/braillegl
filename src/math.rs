@@ -79,6 +79,15 @@ impl Mat4x4f {
         }
     }
 
+    pub const fn zero() -> Self {
+        Self::new(
+            0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 
+        )
+    }
+
     pub fn mul(&self, rhs: &Vec3f, translate: bool) -> Vec3f {
         let t = if translate { 1.0 } else { 0.0 };
         let m = self.m;
@@ -96,18 +105,38 @@ impl Mat4x4f {
         }
     }
 
+    pub fn matmul(&self, rhs: &Self) -> Self {
+        let mut result = Self::zero();
+        for i in 0..4 {
+            for j in 0..4 {
+                for k in 0..4 {
+                    result.m[i][j] += self.m[i][k] * rhs.m[k][j];
+                }
+            }
+        }
+        result
+    }
 
-
-    pub fn get_projection(aspect_ratio: f32, fov: f32, znear: f32, zfar: f32) -> Self {
+    pub fn projection(aspect_ratio: f32, fov: f32, znear: f32, zfar: f32) -> Self {
         let angle = fov * PI / 180.0;
         let f = 1.0 / (angle / 2.0).tan();
         let q = zfar / (zfar - znear);
         Self::new(
-            aspect_ratio*f, 0.0, 0.0, 0.0,
-            0.0, f, 0.0, 0.0,
+            f, 0.0, 0.0, 0.0,
+            0.0, aspect_ratio*f, 0.0, 0.0,
             0.0, 0.0, q, -znear*q,
             0.0, 0.0, 1.0, 0.0,
         )
+    }
+
+    pub fn rotate_y(theta: f32) -> Self {
+        let mut result = Self::identity();
+        let (sintheta, costheta) = theta.sin_cos();
+        result.m[0][0] = costheta;
+        result.m[2][0] = -sintheta;
+        result.m[0][2] = sintheta;
+        result.m[2][2] = costheta;
+        result
     }
 
     pub const fn identity() -> Self {

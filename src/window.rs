@@ -14,31 +14,32 @@ impl Window {
     }
 
     pub fn run(&self) {
-        let mut canvas = Canvas::new();
-        
-        let d_state = DeviceState::new();
-        let mut prev_mouse = d_state.get_mouse();
-        
-        // Load geometry
-        let mut ball = Entity::with_geometry(
-            // shapes::make_sphere(4.0, 25, 25)
-            shapes::load_from_file("res/squidmask.obj")
-        );
-        ball.set_translation(Vec3f::new(0.0, 0.0, -30.0));
-        let mut ball_rot = 0.0;
-
-        // Define user constants
-        let preferred_fps = 60;
-
-        let millis_between_ticks = 1000 / (preferred_fps + 2);
-        let mut tick: u64 = 0;
-        let time = Instant::now();
-
         // Set terminal to raw mode
         let mut _stdout = MouseTerminal::from(
             io::stdout().into_raw_mode().unwrap()
         );
         print!("{}{}", cursor::Hide, clear::All);
+
+        // Init canvas
+        let mut canvas = Canvas::new();
+        
+        // Load geometry
+        let mut entity = Entity::with_geometry(
+            // shapes::make_uv_sphere(4.0, 25, 25)
+            // shapes::make_icosphere(4.0, 2)
+            shapes::load_from_file("res/bunny.obj")
+        );
+        entity.set_translation(Vec3f::new(0.0, 0.0, -30.0));
+
+        // Define user constants
+        let preferred_fps = 60;
+
+        // Getting loop variables initialized
+        let d_state = DeviceState::new();
+        let mut prev_mouse = d_state.get_mouse();
+        let millis_between_ticks = 1000 / (preferred_fps + 2);
+        let mut tick: u64 = 0;
+        let time = Instant::now();
 
         'main: loop {
             // Update time
@@ -53,12 +54,13 @@ impl Window {
                 use device_query::Keycode::*;
                 match k {
                     Escape => break 'main,
-                    W => ball.translate(Vec3f::new(0.0, 0.15, 0.0)),
-                    S => ball.translate(Vec3f::new(0.0, -0.15, 0.0)),
-                    A => ball.translate(Vec3f::new(0.15, 0.0, 0.0)),
-                    D => ball.translate(Vec3f::new(-0.15, 0.0, 0.0)),
-                    Q => ball.translate(Vec3f::new(0.0, 0.0, -0.15)),
-                    E => ball.translate(Vec3f::new(0.0, 0.0, 0.15)),
+                    W => entity.translate(0.0, 0.15, 0.0),
+                    S => entity.translate(0.0, -0.15, 0.0),
+                    A => entity.translate(0.15, 0.0, 0.0),
+                    D => entity.translate(-0.15, 0.0, 0.0),
+                    Q => entity.translate(0.0, 0.0, -0.15),
+                    E => entity.translate(0.0, 0.0, 0.15),
+                    R => entity.rotate_y(0.01),
                     _ => {},
                 }
             }
@@ -69,12 +71,11 @@ impl Window {
             // }
 
             // Update positions
-            ball_rot += 0.01;
-            ball.set_rotation_y(ball_rot);
+            
 
             // Render
             canvas.clear();
-            canvas.draw_entity(&ball);
+            canvas.draw_entity(&entity);
             print!("{}{}{}fps={}", canvas.to_s(), cursor::Goto(1, 1), White.fg_str(), (tick as f32 / t) as u64);
             io::stdout().flush().unwrap();
 
@@ -89,9 +90,10 @@ impl Window {
             };
             std::thread::sleep(Duration::from_millis(millis_between_ticks - frame_time));
         }
+
+        // Reset text color and cursor visibility
         print!("{}{}{}{}", White.fg_str(), clear::All, cursor::Goto(1, 1), cursor::Show);
         io::stdout().flush().unwrap();
-
         drop(_stdout);
     }
 }

@@ -234,8 +234,8 @@ impl Canvas {
         let (width, height) = terminal_size().unwrap();
         let (width, height) = (width as usize * 2, height as usize * 4);
         let pixels = vec![0; width * height];
-        let projection_matrix = Mat4x4f::get_projection(
-            9.0 / 16.0, 
+        let projection_matrix = Mat4x4f::projection(
+            pix_w as f32 / pix_h as f32, 
             90.0, 
             0.1, 1000.0
         );

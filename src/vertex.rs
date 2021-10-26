@@ -14,6 +14,12 @@ impl Vertex {
             position,
         }
     }
+
+    pub fn with_pos(position: Vec3f) -> Self {
+        Self {
+            position,
+        }
+    }
 }
 
 pub struct VertexArray {
