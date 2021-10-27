@@ -26,10 +26,10 @@ impl Window {
         // Load geometry
         let mut entity = Entity::with_geometry(
             // shapes::make_uv_sphere(4.0, 25, 25)
-            // shapes::make_icosphere(4.0, 2)
+            // shapes::make_icosphere(4.0, 5)
             shapes::load_from_file("res/bunny.obj")
         );
-        entity.set_translation(Vec3f::new(0.0, 0.0, -30.0));
+        entity.set_translation(Vec3f::new(0.0, 0.0, -50.0));
 
         // Define user constants
         let preferred_fps = 60;

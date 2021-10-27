@@ -37,12 +37,14 @@ impl Canvas {
             let p2 = e.shape.get(tri.2).position;
 
             // Apply local transform
-            let mut tp0 = e.local_transform.mul(&p0, true);
-            let mut tp1 = e.local_transform.mul(&p1, true);
-            let mut tp2 = e.local_transform.mul(&p2, true);
-            let n = e.local_transform.mul(&normal, false);
+            let mut tp0 = e.local_transform.vecmul(&p0, true);
+            let mut tp1 = e.local_transform.vecmul(&p1, true);
+            let mut tp2 = e.local_transform.vecmul(&p2, true);
 
-            if n.dot(&(tp0 - self.camera.position)) > 0.0 {
+            // THIS IS WRONG (M^-1)^T
+            let n = e.local_transform.vecmul(&normal, false);
+
+            if n.dot(&(self.camera.position - tp0)) < 0.0 {
                 // Cull back faces
                 continue;
             }
@@ -50,9 +52,9 @@ impl Canvas {
             let light_direction = Vec3f::new(1.0, -1.0, -1.0).normalize();
 
             // Project into a 2x2x2 box
-            tp0 = self.projection_matrix.mul(&tp0, true);
-            tp1 = self.projection_matrix.mul(&tp1, true);
-            tp2 = self.projection_matrix.mul(&tp2, true);
+            tp0 = self.projection_matrix.vecmul(&tp0, true);
+            tp1 = self.projection_matrix.vecmul(&tp1, true);
+            tp2 = self.projection_matrix.vecmul(&tp2, true);
 
             // All values are in the interval [-1, 1]
             tp0.x = (tp0.x + 1.0) * self.width as f32 / 2.0;

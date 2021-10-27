@@ -88,7 +88,7 @@ impl Mat4x4f {
         )
     }
 
-    pub fn mul(&self, rhs: &Vec3f, translate: bool) -> Vec3f {
+    pub fn vecmul(&self, rhs: &Vec3f, translate: bool) -> Vec3f {
         let t = if translate { 1.0 } else { 0.0 };
         let m = self.m;
         let v = Vec3f::new(
@@ -97,9 +97,9 @@ impl Mat4x4f {
             m[2][0]*rhs.x + m[2][1]*rhs.y + m[2][2]*rhs.z + m[2][3]*t            
         );
         // Remove below later
-        let scale = m[3][0]*rhs.x + m[3][1]*rhs.y + m[3][2]*rhs.z + m[3][3]*t;
-        if scale != 0.0 {
-            v.scale(1.0 / scale)
+        let w = m[3][0]*rhs.x + m[3][1]*rhs.y + m[3][2]*rhs.z + m[3][3]*t;
+        if w != 0.0 {
+            v.scale(1.0 / w)
         } else {
             v
         }
@@ -125,7 +125,7 @@ impl Mat4x4f {
             f, 0.0, 0.0, 0.0,
             0.0, aspect_ratio*f, 0.0, 0.0,
             0.0, 0.0, q, -znear*q,
-            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, -1.0, 0.0,
         )
     }
 

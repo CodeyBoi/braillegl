@@ -9,18 +9,33 @@ pub struct Shape {
 }
 
 impl Shape {
-    pub fn new(vertex_array: VertexArray, triangles: Vec<(usize, usize, usize)>) -> Self {
-        // Cross product (p1 - p0)x(p2 - p0) gives the normal for the triangle
-        // with points p0, p1 and p2
+    pub fn new(
+        va: VertexArray, 
+        triangles: Vec<(usize, usize, usize)>,
+        normals: Vec<Vec3f>,
+    ) -> Self {
+        Self { va, triangles, normals }
+    }
+    pub fn with_tris(va: VertexArray, triangles: Vec<(usize, usize, usize)>) -> Self {
+        let normals = Self::gen_normals(&va, &triangles);
+        Self::new(va, triangles, normals)
+    }
+
+    fn gen_normals(
+        va: &VertexArray, 
+        triangles: &Vec<(usize, usize, usize)>,
+    ) -> Vec<Vec3f> {
         let mut normals = Vec::with_capacity(triangles.len());
-        for (i0, i1, i2) in &triangles {
-            let p0 = vertex_array[*i0].position;
-            let p1 = vertex_array[*i1].position;
-            let p2 = vertex_array[*i2].position;
+        for (i0, i1, i2) in triangles {
+            let p0 = va[*i0].position;
+            let p1 = va[*i1].position;
+            let p2 = va[*i2].position;
+            // Cross product (p1 - p0)x(p2 - p0) gives the normal for the triangle
+            // with points p0, p1 and p2
             let normal = (p1 - p0).cross(&(p2 - p0)).normalize();
             normals.push(normal);
         }
-        Shape { va: vertex_array, triangles, normals }
+        normals
     }
 
     pub fn indices(&self) -> Iter<(usize, usize, usize)> {
@@ -79,7 +94,7 @@ pub fn make_uv_sphere(
             indices.push((idxs[3], idxs[4], idxs[5]));
         }
     }
-    Shape::new(va, indices)
+    Shape::with_tris(va, indices)
 }
 
 pub fn make_icosphere(radius: f32, refinement_depth: u8) -> Shape {
@@ -165,8 +180,7 @@ pub fn make_icosphere(radius: f32, refinement_depth: u8) -> Shape {
             index
         }
     }
-
-    Shape::new(va, triangles)
+    Shape::with_tris(va, triangles)
 }
 
 pub fn load_from_file<P: AsRef<Path>>(filepath: P) -> Shape {
@@ -203,7 +217,7 @@ pub fn load_from_file<P: AsRef<Path>>(filepath: P) -> Shape {
             if idxs.len() == 4 {
                 indices.push((idxs[0], idxs[2], idxs[3]));
             }
-        }
+        } else if line.starts_with("vt ")
     }
-    Shape::new(va, indices)
+    Shape::with_tris(va, indices)
 }
