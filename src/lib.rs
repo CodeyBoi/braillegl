@@ -4,6 +4,7 @@ pub mod shapes;
 pub mod vertex;
 pub mod math;
 pub mod window;
+pub mod texture;
 
 #[cfg(test)]
 mod tests {

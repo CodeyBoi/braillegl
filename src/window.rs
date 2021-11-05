@@ -1,9 +1,9 @@
 use std::{io::{self, Write}, time::{Duration, Instant}};
 
 use device_query::{DeviceQuery, DeviceState};
-use termion::{clear, color::{Color, White}, cursor, input::MouseTerminal, raw::IntoRawMode};
+use termion::{clear, color::{White}, cursor, input::MouseTerminal, raw::IntoRawMode};
 
-use crate::{canvas::Canvas, entity::Entity, math::Vec3f, shapes};
+use crate::{canvas::Canvas, entity::Entity, shapes};
 
 pub struct Window { }
 
@@ -25,11 +25,15 @@ impl Window {
         
         // Load geometry
         let mut entity = Entity::with_geometry(
-            // shapes::make_uv_sphere(4.0, 25, 25)
-            // shapes::make_icosphere(4.0, 5)
-            shapes::load_from_file("res/bunny.obj")
+            // shapes::make_uv_sphere(5.0, 3, 3)
+            // shapes::make_icosphere(4.0, 3)
+            // shapes::make_quad(10.0, 20.0, 60)
+            shapes::load_from_file("res/objects/teapot.obj")
         );
-        entity.set_translation(Vec3f::new(0.0, 0.0, -50.0));
+        entity.set_translation(0.0, 0.0, -50.0);
+        // entity.load_texture("res/textures/f.png");
+        let mut ent_rot: f32 = 0.0;
+        let mut ent_yaw: f32 = 0.0;
 
         // Define user constants
         let preferred_fps = 60;
@@ -37,7 +41,7 @@ impl Window {
         // Getting loop variables initialized
         let d_state = DeviceState::new();
         let mut prev_mouse = d_state.get_mouse();
-        let millis_between_ticks = 1000 / (preferred_fps + 2);
+        let millis_between_frames = 1000 / (preferred_fps + 2);
         let mut tick: u64 = 0;
         let time = Instant::now();
 
@@ -60,7 +64,9 @@ impl Window {
                     D => entity.translate(-0.15, 0.0, 0.0),
                     Q => entity.translate(0.0, 0.0, -0.15),
                     E => entity.translate(0.0, 0.0, 0.15),
-                    R => entity.rotate_y(0.01),
+                    R => ent_rot += 0.01,
+                    T => ent_yaw += 0.01,
+                    G => ent_yaw -= 0.01,
                     _ => {},
                 }
             }
@@ -71,7 +77,7 @@ impl Window {
             // }
 
             // Update positions
-            
+            entity.set_direction(ent_rot.sin(), ent_yaw.sin(), ent_rot.cos());
 
             // Render
             canvas.clear();
@@ -83,12 +89,12 @@ impl Window {
             prev_mouse = mouse;
             tick += 1;
             let frame_time = ((time.elapsed().as_secs_f32() - t) * 1000.0) as u64;
-            let frame_time = if frame_time >= millis_between_ticks {
-                millis_between_ticks
+            let frame_time = if frame_time >= millis_between_frames {
+                millis_between_frames
             } else {
                 frame_time
             };
-            std::thread::sleep(Duration::from_millis(millis_between_ticks - frame_time));
+            std::thread::sleep(Duration::from_millis(millis_between_frames - frame_time));
         }
 
         // Reset text color and cursor visibility

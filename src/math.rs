@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::{Add, Neg, Sub}};
+use std::{f32::consts::PI, ops::{Add, AddAssign, Mul, Neg, Sub}};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3f {
@@ -10,6 +10,10 @@ pub struct Vec3f {
 impl Vec3f {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
+    }
+
+    pub fn zero() -> Self {
+        Self::new(0.0, 0.0, 0.0)
     }
 
     pub fn normalize(&self) -> Self {
@@ -45,6 +49,14 @@ impl Add for Vec3f {
     }
 }
 
+impl AddAssign for Vec3f {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
 impl Neg for Vec3f {
     type Output = Self;
     fn neg(self) -> Self::Output {
@@ -59,6 +71,7 @@ impl Sub for Vec3f {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Mat4x4f {
     pub m: [[f32; 4]; 4],
 }
@@ -105,37 +118,44 @@ impl Mat4x4f {
         }
     }
 
-    pub fn matmul(&self, rhs: &Self) -> Self {
-        let mut result = Self::zero();
-        for i in 0..4 {
-            for j in 0..4 {
-                for k in 0..4 {
-                    result.m[i][j] += self.m[i][k] * rhs.m[k][j];
-                }
-            }
-        }
-        result
-    }
-
     pub fn projection(aspect_ratio: f32, fov: f32, znear: f32, zfar: f32) -> Self {
         let angle = fov * PI / 180.0;
         let f = 1.0 / (angle / 2.0).tan();
-        let q = zfar / (zfar - znear);
         Self::new(
-            f, 0.0, 0.0, 0.0,
-            0.0, aspect_ratio*f, 0.0, 0.0,
-            0.0, 0.0, q, -znear*q,
-            0.0, 0.0, -1.0, 0.0,
+            f / aspect_ratio, 0.0, 0.0, 0.0,
+            0.0, f, 0.0, 0.0,
+            0.0, 0.0, (znear + zfar) / (zfar - znear), -1.0,
+            0.0, 0.0, 2.0*znear*zfar / (zfar - znear), 0.0,
         )
+    }
+
+    pub fn rotate_x(theta: f32) -> Self {
+        let mut result = Self::identity();
+        let (sintheta, costheta) = theta.sin_cos();
+        result.m[1][1] = costheta;
+        result.m[1][2] = sintheta;
+        result.m[2][1] = -sintheta;
+        result.m[2][2] = costheta;
+        result
     }
 
     pub fn rotate_y(theta: f32) -> Self {
         let mut result = Self::identity();
         let (sintheta, costheta) = theta.sin_cos();
-        result.m[0][0] = costheta;
-        result.m[2][0] = -sintheta;
-        result.m[0][2] = sintheta;
         result.m[2][2] = costheta;
+        result.m[2][0] = sintheta;
+        result.m[0][2] = -sintheta;
+        result.m[0][0] = costheta;
+        result
+    }
+
+    pub fn rotate_z(theta: f32) -> Self {
+        let mut result = Self::identity();
+        let (sintheta, costheta) = theta.sin_cos();
+        result.m[0][0] = costheta;
+        result.m[0][1] = sintheta;
+        result.m[1][0] = -sintheta;
+        result.m[1][1] = costheta;
         result
     }
 
@@ -146,5 +166,32 @@ impl Mat4x4f {
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0,
         )
+    }
+}
+
+impl Mul<f32> for Mat4x4f {
+    type Output = Self;
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        for i in 0..4 {
+            for j in 0..4 {
+                self.m[i][j] *= rhs;
+            }
+        }
+        self
+    }
+}
+
+impl Mul<Mat4x4f> for Mat4x4f {
+    type Output = Mat4x4f;
+    fn mul(self, rhs: Mat4x4f) -> Self::Output {
+        let mut result = Mat4x4f::zero();
+        for i in 0..4 {
+            for j in 0..4 {
+                for k in 0..4 {
+                    result.m[i][j] += self.m[i][k] * rhs.m[k][j];
+                }
+            }
+        }
+        result
     }
 }

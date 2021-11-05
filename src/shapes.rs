@@ -1,44 +1,84 @@
-use std::{collections::HashMap, f32::consts::PI, fs::{File}, io::{BufRead, BufReader}, path::Path, slice::Iter};
+use std::{collections::HashMap, f32::consts::PI, fs::File, io::{BufRead, BufReader}, path::Path, slice::Iter};
+
+use float_ord::FloatOrd;
 
 use crate::{math::Vec3f, vertex::{Vertex, VertexArray}};
 
 pub struct Shape {
     va: VertexArray,
     triangles: Vec<(usize, usize, usize)>,
-    pub normals: Vec<Vec3f>,
 }
 
 impl Shape {
     pub fn new(
-        va: VertexArray, 
-        triangles: Vec<(usize, usize, usize)>,
+        positions: Vec<Vec3f>, 
         normals: Vec<Vec3f>,
+        texcoords: Vec<(f32, f32)>,
+        triangles: Vec<(usize, usize, usize)>,
     ) -> Self {
-        Self { va, triangles, normals }
+        let mut va = VertexArray::with_capacity(positions.len());
+        for ((position, normal), texcoord) in positions.iter()
+            .zip(&normals)
+            .zip(&texcoords)
+        {
+            va.push(Vertex::new(*position, *normal, *texcoord));
+        }
+        Self { va, triangles }
     }
-    pub fn with_tris(va: VertexArray, triangles: Vec<(usize, usize, usize)>) -> Self {
-        let normals = Self::gen_normals(&va, &triangles);
-        Self::new(va, triangles, normals)
+
+    pub fn with_tris(
+        positions: Vec<Vec3f>, 
+        triangles: Vec<(usize, usize, usize)>,
+    ) -> Self {
+        let normals = Self::gen_normals(&positions, &triangles);
+        Self::with_normals(positions, normals, triangles)
+    }
+
+    pub fn with_texcoords(
+        positions: Vec<Vec3f>, 
+        triangles: Vec<(usize, usize, usize)>,
+        texcoords: Vec<(f32, f32)>,
+    ) -> Self {
+        let normals = Self::gen_normals(&positions, &triangles);
+        Self::new(positions, normals, texcoords, triangles)
+    }
+
+    pub fn with_normals(
+        positions: Vec<Vec3f>, 
+        normals: Vec<Vec3f>,
+        triangles: Vec<(usize, usize, usize)>,
+    ) -> Self {
+        let mut va = VertexArray::with_capacity(positions.len());
+        for (position, normal) in positions.iter().zip(&normals) {
+            va.push(Vertex::with_pos_normal(*position, *normal));
+        }
+        Self { va, triangles }
     }
 
     fn gen_normals(
-        va: &VertexArray, 
+        positions: &Vec<Vec3f>, 
         triangles: &Vec<(usize, usize, usize)>,
     ) -> Vec<Vec3f> {
-        let mut normals = Vec::with_capacity(triangles.len());
+        let mut normals = vec![Vec3f::zero(); positions.len()];
         for (i0, i1, i2) in triangles {
-            let p0 = va[*i0].position;
-            let p1 = va[*i1].position;
-            let p2 = va[*i2].position;
+            let p0 = positions[*i0];
+            let p1 = positions[*i1];
+            let p2 = positions[*i2];
             // Cross product (p1 - p0)x(p2 - p0) gives the normal for the triangle
             // with points p0, p1 and p2
-            let normal = (p1 - p0).cross(&(p2 - p0)).normalize();
-            normals.push(normal);
+            let tri_normal = (p1 - p0).cross(&(p2 - p0)).normalize();
+
+            normals[*i0] += tri_normal;
+            normals[*i1] += tri_normal;
+            normals[*i2] += tri_normal;
+        }
+        for normal in &mut normals {
+            *normal = normal.normalize();
         }
         normals
     }
 
-    pub fn indices(&self) -> Iter<(usize, usize, usize)> {
+    pub fn triangles(&self) -> Iter<(usize, usize, usize)> {
         self.triangles.iter()
     }
 
@@ -60,7 +100,9 @@ pub fn make_uv_sphere(
     let longitude_points = longitude_splits + 2;
     let latitude_points = latitude_splits + 2;
 
-    let mut va = VertexArray::new((longitude_points * latitude_points) as usize);
+    let vertex_count = (longitude_points * latitude_points) as usize;
+    let mut positions = Vec::with_capacity(vertex_count);
+    let mut texcoords = Vec::with_capacity(vertex_count);
     for i in 0..longitude_points {
         for j in 0..latitude_points {
             let phi = PI * i as f32 / (longitude_points - 1) as f32;
@@ -73,12 +115,15 @@ pub fn make_uv_sphere(
                 -radius * cosphi,
                 radius * costheta * sinphi,
             );
-            va.push(Vertex::new(position));
+            let tx = j as f32 / (latitude_points - 1) as f32;
+            let ty = i as f32 / (longitude_points - 1) as f32;
+            positions.push(position);
+            texcoords.push((tx, ty));
         }
     }
 
     let no_of_triangles = 2 * ((latitude_points - 1) * (longitude_points - 1)) as usize;
-    let mut indices = Vec::with_capacity(no_of_triangles);
+    let mut triangles = Vec::with_capacity(no_of_triangles);
     for col in 0..longitude_points - 1 {
         for row in 0..latitude_points - 1 {
             // The current indices to be appended
@@ -90,33 +135,37 @@ pub fn make_uv_sphere(
                 ((col + 1) + (row + 1) * longitude_points) as usize,
                 ((col + 0) + (row + 1) * longitude_points) as usize,
             ];
-            indices.push((idxs[0], idxs[1], idxs[2]));
-            indices.push((idxs[3], idxs[4], idxs[5]));
+            triangles.push((idxs[0], idxs[1], idxs[2]));
+            triangles.push((idxs[3], idxs[4], idxs[5]));
         }
     }
-    Shape::with_tris(va, indices)
+    Shape::with_texcoords(positions, triangles, texcoords)
 }
 
 pub fn make_icosphere(radius: f32, refinement_depth: u8) -> Shape {
-    let mut va = VertexArray::new(12 * 2_usize.pow(refinement_depth as u32));
+
+    assert!(radius > 0.0);
+
+    let vertex_count = 12 * 2_usize.pow(refinement_depth as u32);
+    let mut positions = Vec::with_capacity(vertex_count);
 
     let s = ((5.0 - 5.0_f32.sqrt()) / 10.0).sqrt() * radius;
     let t = ((5.0 + 5.0_f32.sqrt()) / 10.0).sqrt() * radius;
 
-    va.push(Vertex::with_pos(Vec3f::new(-s, t, 0.0)));
-    va.push(Vertex::with_pos(Vec3f::new(s, t, 0.0)));
-    va.push(Vertex::with_pos(Vec3f::new(-s, -t, 0.0)));
-    va.push(Vertex::with_pos(Vec3f::new(s, -t, 0.0)));
+    positions.push(Vec3f::new(-s, t, 0.0));
+    positions.push(Vec3f::new(s, t, 0.0));
+    positions.push(Vec3f::new(-s, -t, 0.0));
+    positions.push(Vec3f::new(s, -t, 0.0));
 
-    va.push(Vertex::with_pos(Vec3f::new(0.0, -s, t)));
-    va.push(Vertex::with_pos(Vec3f::new(0.0, s, t)));
-    va.push(Vertex::with_pos(Vec3f::new(0.0, -s, -t)));
-    va.push(Vertex::with_pos(Vec3f::new(0.0, s, -t)));
+    positions.push(Vec3f::new(0.0, -s, t));
+    positions.push(Vec3f::new(0.0, s, t));
+    positions.push(Vec3f::new(0.0, -s, -t));
+    positions.push(Vec3f::new(0.0, s, -t));
 
-    va.push(Vertex::with_pos(Vec3f::new(t, 0.0, -s)));
-    va.push(Vertex::with_pos(Vec3f::new(t, 0.0, s)));
-    va.push(Vertex::with_pos(Vec3f::new(-t, 0.0, -s)));
-    va.push(Vertex::with_pos(Vec3f::new(-t, 0.0, s)));
+    positions.push(Vec3f::new(t, 0.0, -s));
+    positions.push(Vec3f::new(t, 0.0, s));
+    positions.push(Vec3f::new(-t, 0.0, -s));
+    positions.push(Vec3f::new(-t, 0.0, s));
 
     let mut triangles = Vec::new();
 
@@ -148,9 +197,9 @@ pub fn make_icosphere(radius: f32, refinement_depth: u8) -> Shape {
         let mut new_triangles = Vec::new();
         let mut cache = HashMap::new();
         for i in &triangles {        
-            let a = find_middle_point(i.0, i.1, radius, &mut va, &mut cache);
-            let b = find_middle_point(i.1, i.2, radius, &mut va, &mut cache);
-            let c = find_middle_point(i.2, i.0, radius, &mut va, &mut cache);
+            let a = find_middle_point(i.0, i.1, radius, &mut positions, &mut cache);
+            let b = find_middle_point(i.1, i.2, radius, &mut positions, &mut cache);
+            let c = find_middle_point(i.2, i.0, radius, &mut positions, &mut cache);
 
             new_triangles.push((i.0, a, c));
             new_triangles.push((i.1, b, a));
@@ -162,7 +211,7 @@ pub fn make_icosphere(radius: f32, refinement_depth: u8) -> Shape {
 
     fn find_middle_point(
         a: usize, b: usize, radius: f32,
-        va: &mut VertexArray, 
+        positions: &mut Vec<Vec3f>, 
         cache: &mut HashMap<(usize, usize), usize>
     ) -> usize {
         let (a, b) = if a < b {
@@ -173,19 +222,87 @@ pub fn make_icosphere(radius: f32, refinement_depth: u8) -> Shape {
         if cache.contains_key(&(a, b)) {
             *cache.get(&(a, b)).unwrap()
         } else {
-            let (p0, p1) = (va[a].position, va[b].position);
-            va.push(Vertex::with_pos((p0 + p1).normalize().scale(radius)));
-            let index = va.len() - 1;
+            let (p0, p1) = (positions[a], positions[b]);
+            positions.push((p0 + p1).normalize().scale(radius));
+            let index = positions.len() - 1;
             cache.insert((a, b), index);
             index
         }
     }
-    Shape::with_tris(va, triangles)
+    Shape::with_tris(positions, triangles)
+}
+
+// pub fn make_cuboid(width: f32, height: f32, length: f32, splits: u64) {
+//     let x0 = -width  / 2.0;
+//     let y0 = -height / 2.0;
+//     let z0 = -length / 2.0;
+//     let point_distance = [
+//             FloatOrd{ 0: width }, 
+//             FloatOrd{ 0: height }, 
+//             FloatOrd{ 0: length }
+//         ].iter().max().unwrap().0 / splits as f32;
+
+//     let x_steps = (width  / point_distance) as usize;
+//     let y_steps = (height / point_distance) as usize;
+//     let z_steps = (length / point_distance) as usize;
+
+//     for i in 0..x_steps {
+
+//     }
+// }
+
+pub fn make_quad(width: f32, length: f32, splits: u64) -> Shape {
+
+    assert!(width > 0.0);
+    assert!(length > 0.0);
+
+    let x0 = -width  / 2.0;
+    let z0 = -length / 2.0;
+    let point_difference = width.max(length) / (splits + 1) as f32;
+    let x_points = (width  / point_difference) as usize + 1;
+    let z_points = (length / point_difference) as usize + 1;
+
+    let no_of_vertices = x_points * z_points;
+    let mut positions = Vec::with_capacity(no_of_vertices);
+    let mut texcoords = Vec::with_capacity(no_of_vertices);
+
+    for i in 0..x_points {
+        for j in 0..z_points {
+            let x = x0 + i as f32 * width  / (x_points - 1) as f32;
+            let z = z0 + j as f32 * length / (x_points - 1) as f32;
+            
+            positions.push(Vec3f::new(x, 0.0, z));
+            texcoords.push((i as f32 / (x_points - 1) as f32, j as f32 / (z_points - 1) as f32));
+        }
+    }
+
+    let no_of_triangles = 2 * ((x_points - 1) * (z_points - 1)) as usize;
+    let mut triangles = Vec::with_capacity(no_of_triangles);
+    for col in 0..x_points - 1 {
+        for row in 0..z_points - 1 {
+            // The current indices to be appended
+            let idxs = [
+                ((col + 0) + (row + 0) * x_points) as usize,
+                ((col + 1) + (row + 0) * x_points) as usize,
+                ((col + 1) + (row + 1) * x_points) as usize,
+                ((col + 0) + (row + 0) * x_points) as usize,
+                ((col + 1) + (row + 1) * x_points) as usize,
+                ((col + 0) + (row + 1) * x_points) as usize,
+            ];
+            triangles.push((idxs[0], idxs[1], idxs[2]));
+            triangles.push((idxs[3], idxs[4], idxs[5]));
+        }
+    }
+    Shape::with_texcoords(positions, triangles, texcoords)    
 }
 
 pub fn load_from_file<P: AsRef<Path>>(filepath: P) -> Shape {
-    let mut va = VertexArray::new(512);
-    let mut indices = Vec::with_capacity(1536);
+
+    let mut triangles = Vec::new();
+    let mut texcoord_vecs = Vec::new();
+    let mut positions = Vec::new();
+    let mut texcoords = Vec::new();
+
     let reader = BufReader::new(File::open(filepath).unwrap());
     for line in reader.lines() {
         let line = line.unwrap();
@@ -193,31 +310,45 @@ pub fn load_from_file<P: AsRef<Path>>(filepath: P) -> Shape {
             let p = line[2..].split_whitespace().map(|x|
                 x.parse().unwrap()
             ).collect::<Vec<f32>>();
-            va.push(Vertex::new(Vec3f::new(p[0], p[1], p[2])));
+            positions.push(Vec3f::new(p[0], p[1], p[2]));
+        } else if line.starts_with("vt ") {
+            let p = line[3..].split_whitespace().map(|x|
+                x.parse().unwrap()
+            ).collect::<Vec<f32>>();
+            texcoord_vecs.push((p[0], p[1]));
+
         } else if line.starts_with("f ") {
-            let idxs = line[2..].split_whitespace()
-                .map(|x|
-                    if x.contains("/") {
-                        let val = x.split_once("/").unwrap().0.parse::<i32>().unwrap();
-                        if val < 0 {
-                            (va.len() as i32 + val) as usize
-                        } else {
-                            val as usize - 1
-                        }
+            let mut tri = Vec::with_capacity(4);
+            line[1..].split_whitespace().map(|str| {
+                str.split("/").take(2).enumerate().map(|(i, val)| {
+                    let val: i32 = val.parse().unwrap();
+                    let val = if val >= 0 {
+                        val as usize - 1
                     } else {
-                        let val = x.parse::<i32>().unwrap();
-                        if val < 0 {
-                            (va.len() as i32 + val) as usize
+                        if i == 0 {
+                            (positions.len() as i32 + val) as usize
                         } else {
-                            val as usize - 1
+                            (texcoord_vecs.len() as i32 + val) as usize
                         }
+                    };
+                    if i == 0 {
+                        tri.push(val);
+                    } else {
+                        texcoords.push(texcoord_vecs[val]);
                     }
-                ).collect::<Vec<usize>>();
-            indices.push((idxs[0], idxs[1], idxs[2]));
-            if idxs.len() == 4 {
-                indices.push((idxs[0], idxs[2], idxs[3]));
+                }).last();
+            }).last();
+            let i0 = tri[0];
+            for (i1, i2) in tri[1..].iter().zip(&tri[2..]) {
+                triangles.push((i0, *i1, *i2));
             }
-        } else if line.starts_with("vt ")
+        }
     }
-    Shape::with_tris(va, indices)
+    let normals = Shape::gen_normals(&positions, &triangles);
+    println!("{} {} {}", positions.len(), normals.len(), texcoords.len());
+    if texcoords.is_empty() {
+        Shape::with_normals(positions, normals, triangles)
+    } else {
+        Shape::new(positions, normals, texcoords, triangles)
+    }
 }

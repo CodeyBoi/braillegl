@@ -6,18 +6,24 @@ use crate::math::Vec3f;
 #[derive(Clone, Copy)]
 pub struct Vertex {
     pub position: Vec3f,
+    pub normal: Vec3f,
+    pub texcoord: Option<(f32, f32)>,
 }
 
 impl Vertex {
-    pub fn new(position: Vec3f) -> Self {
+    pub fn new(position: Vec3f, normal: Vec3f, texcoord: (f32, f32)) -> Self {
         Self {
             position,
+            normal,
+            texcoord: Some(texcoord),
         }
     }
 
-    pub fn with_pos(position: Vec3f) -> Self {
+    pub fn with_pos_normal(position: Vec3f, normal: Vec3f) -> Self {
         Self {
             position,
+            normal,
+            texcoord: None,
         }
     }
 }
@@ -27,14 +33,16 @@ pub struct VertexArray {
 }
 
 impl VertexArray {
+    pub fn new() -> Self {
+        Self { vertices: Vec::new() }
+    }
+
     /// Creates a new VertexArray. This is just a `Vec<Vertex>`.
     /// 
     /// # Arguments
     /// `capacity` - the amount of vertices that can be added before a reallocation is needed
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            vertices: Vec::with_capacity(capacity),
-        }
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self { vertices: Vec::with_capacity(capacity) }
     }
 
     /// Appends a Vertex to the end
