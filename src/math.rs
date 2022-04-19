@@ -186,8 +186,8 @@ impl Mul<Mat4x4f> for Mat4x4f {
     fn mul(self, rhs: Mat4x4f) -> Self::Output {
         let mut result = Mat4x4f::zero();
         for i in 0..4 {
-            for j in 0..4 {
-                for k in 0..4 {
+            for k in 0..4 {
+                for j in 0..4 {
                     result.m[i][j] += self.m[i][k] * rhs.m[k][j];
                 }
             }

@@ -8,8 +8,6 @@ pub mod texture;
 
 #[cfg(test)]
 mod tests {
-    use crate::math::Vec3f;
-
     #[test]
     fn it_works() {
         let window = crate::window::Window::default();

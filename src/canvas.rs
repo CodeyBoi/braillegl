@@ -1,4 +1,4 @@
-use std::{fmt::Write, process::Command, str::from_utf8};
+use std::{fmt::Write};
 
 use termion::{clear, color::Rgb, cursor, terminal_size};
 
@@ -59,11 +59,11 @@ impl Canvas {
                 continue;
             }
 
-            // THIS IS WRONG! Transform normals with (M^-1)^T
+            // This is wrong. TODO: Transform normals with (M^-1)^T instead
             // Might explain the visual artifacts
-            let n0 = lt.vecmul(&v0.normal, false).normalize();
-            let n1 = lt.vecmul(&v1.normal, false).normalize();
-            let n2 = lt.vecmul(&v2.normal, false).normalize();
+            // let n0 = lt.vecmul(&v0.normal, false).normalize();
+            // let n1 = lt.vecmul(&v1.normal, false).normalize();
+            // let n2 = lt.vecmul(&v2.normal, false).normalize();
 
             // Project into a 2x2x2 box
             let mut tp0 = self.projection_matrix.vecmul(&tp0, true);
@@ -89,16 +89,16 @@ impl Canvas {
             } else {
                 Color::WHITE
             };
-            let c1 = if let Some(tc) = v1.texcoord {
-                e.sample_texture(tc)
-            } else {
-                Color::WHITE
-            };
-            let c2 = if let Some(tc) = v2.texcoord {
-                e.sample_texture(tc)
-            } else {
-                Color::WHITE
-            };
+            // let c1 = if let Some(tc) = v1.texcoord {
+                // e.sample_texture(tc)
+            // } else {
+                // Color::WHITE
+            // };
+            // let c2 = if let Some(tc) = v2.texcoord {
+                // e.sample_texture(tc)
+            // } else {
+                // Color::WHITE
+            // };
             
             self.fill_triangle(
                 tp0.x as i32, tp0.y as i32, 
@@ -221,12 +221,13 @@ impl Canvas {
         /// 
         /// `x` - the x-value for which to compute y.
         fn plerp(x0: i32, y0: i32, x1: i32, y1: i32, x: i32) -> i32 {
-            if x == x0 || y0 == y1 {
+            let (dx, dy) = (x1 - x0, y1 - y0);
+            if x == x0 || dy == 0 {
                 return y0;
             } else if x == x1 {
                 return y1;
             }
-            let y_step = (y1 - y0) as f32 / (x1 - x0) as f32;
+            let y_step = dy as f32 / dx as f32;
             (y0 as f32 + y_step * (x - x0) as f32 + 0.5) as i32
         }
     }
@@ -254,7 +255,7 @@ impl Canvas {
                 for (i, (dx, dy)) in INDEX_OFFSETS.iter().enumerate() {
                     let index = (pix_row + dy) * self.width + pix_col + dx;
                     if let Some(p_color) = self.pixels[index] {
-                        braille_code += 2_u32.pow(i as u32);
+                        braille_code += 1 << i;
                         cel_color += p_color * (1.0 / 8.0);
                     }
                 }
@@ -272,16 +273,16 @@ impl Canvas {
     }
     
     pub fn new() -> Self {
-        let wpos = Command::new("sh")
-            .arg("-c")
-            .arg(r"xdotool getwindowfocus getwindowgeometry --shell | sed /[XYHT]=/P -n | echo -n $(tr -dc '0-9\n')")
-            .output()
-            .expect("failed when getting window position.")
-            .stdout;
-        let wpos: Vec<i32> = from_utf8(&wpos).unwrap().split(" ").map(|d|
-            d.parse::<i32>().unwrap()
-        ).collect();
-        let (win_x, win_y, pix_w, pix_h) = (wpos[0], wpos[1], wpos[2] - 13, wpos[3] - 10);
+        // let wpos = Command::new("sh")
+            // .arg("-c")
+            // .arg(r"xdotool getwindowfocus getwindowgeometry --shell | sed /[XYHT]=/P -n | echo -n $(tr -dc '0-9\n')")
+            // .output()
+            // .expect("failed when getting window position.")
+            // .stdout;
+        // let wpos: Vec<i32> = from_utf8(&wpos).unwrap().split(" ").map(|d|
+            // d.parse::<i32>().unwrap()
+        // ).collect();
+        // let (win_x, win_y, pix_w, pix_h) = (wpos[0], wpos[1], wpos[2] - 13, wpos[3] - 10);
 
         let (win_x, win_y, pix_w, pix_h) = (0, 0, 1353, 758);
 

@@ -1,7 +1,5 @@
 use std::{collections::HashMap, f32::consts::PI, fs::File, io::{BufRead, BufReader}, path::Path, slice::Iter};
 
-use float_ord::FloatOrd;
-
 use crate::{math::Vec3f, vertex::{Vertex, VertexArray}};
 
 pub struct Shape {

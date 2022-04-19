@@ -1,7 +1,7 @@
 use std::{io::{self, Write}, time::{Duration, Instant}};
 
 use device_query::{DeviceQuery, DeviceState};
-use termion::{clear, color::{White}, cursor, input::MouseTerminal, raw::IntoRawMode};
+use termion::{clear, color::White, cursor, input::MouseTerminal, raw::IntoRawMode};
 
 use crate::{canvas::Canvas, entity::Entity, shapes};
 
@@ -25,13 +25,13 @@ impl Window {
         
         // Load geometry
         let mut entity = Entity::with_geometry(
-            // shapes::make_uv_sphere(5.0, 3, 3)
+            // shapes::make_uv_sphere(5.0, 100, 100)
             // shapes::make_icosphere(4.0, 3)
             // shapes::make_quad(10.0, 20.0, 60)
             shapes::load_from_file("res/objects/teapot.obj")
         );
-        entity.set_translation(0.0, 0.0, -50.0);
-        // entity.load_texture("res/textures/f.png");
+        entity.set_translation(0.0, 0.0, -30.0);
+        entity.load_texture("res/textures/f.png");
         let mut ent_rot: f32 = 0.0;
         let mut ent_yaw: f32 = 0.0;
 
@@ -40,7 +40,7 @@ impl Window {
 
         // Getting loop variables initialized
         let d_state = DeviceState::new();
-        let mut prev_mouse = d_state.get_mouse();
+        // let mut prev_mouse = d_state.get_mouse();
         let millis_between_frames = 1000 / (preferred_fps + 2);
         let mut tick: u64 = 0;
         let time = Instant::now();
@@ -50,7 +50,7 @@ impl Window {
             let t = time.elapsed().as_secs_f32();
 
             // Get input state
-            let mouse = d_state.get_mouse();
+            // let mouse = d_state.get_mouse();
             let keys = d_state.get_keys();
             
             // Handle events
@@ -86,7 +86,7 @@ impl Window {
             io::stdout().flush().unwrap();
 
             // Save states for next frame
-            prev_mouse = mouse;
+            // prev_mouse = mouse;
             tick += 1;
             let frame_time = ((time.elapsed().as_secs_f32() - t) * 1000.0) as u64;
             let frame_time = if frame_time >= millis_between_frames {
